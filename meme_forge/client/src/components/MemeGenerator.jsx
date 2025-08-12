@@ -1,13 +1,16 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { RotateCcw, Palette, Type, Image as ImageIcon, Video, Play, Pause, Download } from 'lucide-react';
+import { RotateCcw, Palette, Type, Image as ImageIcon, Video, Play, Pause, Download, Upload, Share2 } from 'lucide-react';
 import ImageUpload from './ImageUpload';
 import TextControls from './TextControls';
 import { drawMemeOnCanvas, drawMemeOnVideo } from '../utils/canvas.js';
+import { uploadMemeToCloud } from '../utils/upload.js';
 
 const MemeGenerator = ({ preselectedTemplate }) => {
   const [selectedImage, setSelectedImage] = useState('');
   const [mediaType, setMediaType] = useState('image'); // 'image', 'video', 'gif'
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState('');
   const [topText, setTopText] = useState({
     content: 'TOP TEXT',
     fontSize: 48,
@@ -133,6 +136,29 @@ const MemeGenerator = ({ preselectedTemplate }) => {
     link.click();
   };
 
+  const uploadMeme = async () => {
+    if (!previewRef.current) return;
+    
+    setIsUploading(true);
+    try {
+      const result = await uploadMemeToCloud(previewRef.current, `meme-${Date.now()}.png`);
+      setUploadedUrl(result.url);
+      
+      // Show success message or copy to clipboard
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(result.url);
+        alert('Meme uploaded successfully! URL copied to clipboard.');
+      } else {
+        alert(`Meme uploaded successfully! URL: ${result.url}`);
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload meme. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   useEffect(() => {
     return () => cancelAnimationFrame(animationFrameRef.current);
   }, []);
@@ -212,13 +238,32 @@ const MemeGenerator = ({ preselectedTemplate }) => {
               )}
             </div>
             {/* Download button under preview */}
-            <button
-              onClick={downloadMeme}
-              className="mt-4 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              Download Meme
-            </button>
+            <div className="mt-4 flex gap-3 justify-center">
+              <button
+                onClick={downloadMeme}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </button>
+              <button
+                onClick={uploadMeme}
+                disabled={isUploading}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg hover:from-green-700 hover:to-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-4 w-4" />
+                    Share Online
+                  </>
+                )}
+              </button>
+            </div>
           </>
         ) : (
           <div className="w-full max-w-lg h-96 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center bg-gray-50">
@@ -270,6 +315,26 @@ const MemeGenerator = ({ preselectedTemplate }) => {
               Reset
             </button>
           </div>
+          
+          {uploadedUrl && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-green-700 font-medium mb-2">✅ Meme uploaded successfully!</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={uploadedUrl}
+                  readOnly
+                  className="flex-1 text-xs bg-white border border-green-300 rounded px-2 py-1"
+                />
+                <button
+                  onClick={() => navigator.clipboard.writeText(uploadedUrl)}
+                  className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
